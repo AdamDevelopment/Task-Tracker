@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	filename string
+	filename = "tasks.json"
 )
 
 type TaskProperties struct {
@@ -25,6 +25,18 @@ type TaskProperties struct {
 func JsonDataMarshalling(t *TaskProperties) ([]byte, error) {
 	return json.MarshalIndent(t, "", "   ")
 }
+func Exists(filename string) error {
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		fmt.Println("File does not exists. Creating a new file...")
+		for i := 0; i < 3; i++ { // Tylko trzy iteracje
+			time.Sleep(1 * time.Second)
+			fmt.Print(".")
+		}
+		return WriteJsonFile(&TaskProperties{})
+	}
+	return nil
+}
 
 // Funkcja do zapisu do pliku JSON
 func WriteJsonFile(t *TaskProperties) error {
@@ -33,8 +45,6 @@ func WriteJsonFile(t *TaskProperties) error {
 		log.Printf("Error marshalling JSON: %v", err)
 		return err
 	}
-	fmt.Print("Enter the file name: ")
-	_, err = fmt.Scanln(&filename)
 
 	if !strings.HasSuffix(filename, ".json") {
 		filename += ".json"
@@ -88,8 +98,11 @@ func main() {
 		fmt.Println("Usage: ./task-cli <command> [arguments]")
 		return
 	}
-
 	command := os.Args[1] // add, update, delete, list
+	err := Exists(filename)
+	if err != nil {
+		return
+	}
 	switch command {
 	case "add":
 		desc := strings.Join(os.Args[2:], " ") // ie. "Task description"
