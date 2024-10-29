@@ -25,44 +25,31 @@ type TaskProperties struct {
 func JsonDataMarshalling(t *TaskProperties) ([]byte, error) {
 	return json.MarshalIndent(t, "", "   ")
 }
-func Exists(filename string) error {
-	_, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		fmt.Println("File does not exists. Creating a new file...")
-		for i := 0; i < 3; i++ { // Tylko trzy iteracje
-			time.Sleep(1 * time.Second)
-			fmt.Print(".")
-		}
-		return WriteJsonFile(&TaskProperties{})
+func ExistsOrCreate(t *TaskProperties, filename string) error {
+	if !strings.HasSuffix(filename, ".json") {
+		return fmt.Errorf("file name must end with .json extension")
 	}
-	return nil
-}
 
-// Funkcja do zapisu do pliku JSON
-func WriteJsonFile(t *TaskProperties) error {
 	data, err := JsonDataMarshalling(t)
 	if err != nil {
-		log.Printf("Error marshalling JSON: %v", err)
+		log.Printf("Error marshalling JSON data: %v", err)
 		return err
 	}
 
-	if !strings.HasSuffix(filename, ".json") {
-		filename += ".json"
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		fmt.Println("File does not exist. Creating a new file...")
+		err = os.WriteFile(filename, data, 0644)
+		if err != nil {
+			log.Printf("Error writing to file: %v", err)
+			return err
+		}
+		fmt.Println("File created successfully.")
 	} else {
-		fmt.Println("File name already has a .json extension")
-	}
-
-	if err != nil {
-		log.Printf("Error reading file name: %v", err)
-		return err
-	}
-	err = os.WriteFile(filename, data, 0777)
-	if err != nil {
-		log.Printf("Error writing to file: %v", err)
-		return err
+		fmt.Println("File exists.")
 	}
 	return nil
 }
+
 
 // Funkcja do odczytu z pliku JSON
 func ReadJsonFile() (*TaskProperties, error) {
@@ -99,8 +86,9 @@ func main() {
 		return
 	}
 	command := os.Args[1] // add, update, delete, list
-	err := Exists(filename)
+	err := ExistsOrCreate(&TaskProperties{}, filename)
 	if err != nil {
+		log.Printf("Error creating file: %v", err)
 		return
 	}
 	switch command {
@@ -113,7 +101,7 @@ func main() {
 		}
 		id := task.Id + 1 // ID dla nowego zadania
 		newTask := AddTask(desc, "Initial status", id)
-		err = WriteJsonFile(newTask) // Zapisz nowe zadanie do pliku
+		err = ExistsOrCreate(newTask, filename) // Zapisz nowe zadanie do pliku
 		if err != nil {
 			log.Printf("Error adding a description: %v", err)
 			return

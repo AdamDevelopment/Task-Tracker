@@ -1,7 +1,7 @@
 {
-   "id": 1,
-   "description": "Naprawa roweru w czwartek",
-   "createdAt": "2024-10-28T22:49:14.6774251+01:00",
-   "updatedAt": "2024-10-28T22:49:14.6774251+01:00",
-   "status": "Initial status"
+   "id": 0,
+   "description": "",
+   "createdAt": "0001-01-01T00:00:00Z",
+   "updatedAt": "0001-01-01T00:00:00Z",
+   "status": ""
 }
