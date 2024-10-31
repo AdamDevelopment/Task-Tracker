@@ -1,3 +1,7 @@
+
+//To-do:
+// 1. Add Json content handling - check if record exists, if not, create a new record under first one (CheckIfJsonRecordExists)
+
 package main
 
 import (
@@ -21,35 +25,44 @@ type TaskProperties struct {
 	Status    string    `json:"status"`      // The status of the task
 }
 
-// Funkcja do serializacji obiektu zadania do JSON
-func JsonDataMarshalling(t *TaskProperties) ([]byte, error) {
-	return json.MarshalIndent(t, "", "   ")
-}
 func ExistsOrCreate(t *TaskProperties, filename string) error {
 	if !strings.HasSuffix(filename, ".json") {
-		return fmt.Errorf("file name must end with .json extension")
+		return fmt.Errorf("invalid file extension. Please provide a JSON file")
 	}
-
-	data, err := JsonDataMarshalling(t)
+	data, err := json.MarshalIndent(t, "", "   ")
 	if err != nil {
 		log.Printf("Error marshalling JSON data: %v", err)
 		return err
 	}
+	_, err = os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
 
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		fmt.Println("File does not exist. Creating a new file...")
-		err = os.WriteFile(filename, data, 0644)
-		if err != nil {
-			log.Printf("Error writing to file: %v", err)
+			SleepTime := 1.5
+			fmt.Println("File does not exist.")
+			time.Sleep(time.Duration(SleepTime) * time.Second)
+			fmt.Print("Creating a new file")
+			for i := 0; i < 3; i++ {
+				fmt.Print(".")
+				time.Sleep(1 * time.Second)
+
+			}
+			fmt.Println("")
+			err = os.WriteFile(filename, data, 0644)
+			if err != nil {
+				log.Printf("Error writing to file: %v", err)
+				return err
+			}
+			fmt.Println("File created successfully.")
+		} else {
+			log.Printf("Error checking file existence: %v", err)
 			return err
 		}
-		fmt.Println("File created successfully.")
 	} else {
-		fmt.Println("File exists.")
+		fmt.Println("File exists")
 	}
 	return nil
 }
-
 
 // Funkcja do odczytu z pliku JSON
 func ReadJsonFile() (*TaskProperties, error) {
@@ -65,6 +78,36 @@ func ReadJsonFile() (*TaskProperties, error) {
 		return nil, err
 	}
 	return &task, nil
+}
+
+func CheckIfJsonRecordExists(filename string) bool {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		log.Printf("Error reading file: %v", err)
+		return false
+	}
+	if len(data) == 0 {
+		fmt.Println("JSON file is empty.")
+		return false
+	}
+	fmt.Println("JSON file is not empty.")
+	return true
+}
+
+func WriteToJsonFile(task *TaskProperties, filename string) error {
+	data, err := json.MarshalIndent(task, "", "   ")
+	if err != nil {
+		log.Printf("Error marshalling JSON data: %v", err)
+		return err
+	}
+
+	err = os.WriteFile(filename, data, 0644)
+	if err != nil {
+		log.Printf("Error writing to file: %v", err)
+		return err
+	}
+	fmt.Println("Task written to file successfully.")
+	return nil
 }
 
 // Funkcja do dodania nowego zadania
@@ -85,12 +128,13 @@ func main() {
 		fmt.Println("Usage: ./task-cli <command> [arguments]")
 		return
 	}
-	command := os.Args[1] // add, update, delete, list
 	err := ExistsOrCreate(&TaskProperties{}, filename)
 	if err != nil {
 		log.Printf("Error creating file: %v", err)
 		return
 	}
+
+	command := os.Args[1] // add, update, delete, list
 	switch command {
 	case "add":
 		desc := strings.Join(os.Args[2:], " ") // ie. "Task description"
@@ -101,26 +145,32 @@ func main() {
 		}
 		id := task.Id + 1 // ID dla nowego zadania
 		newTask := AddTask(desc, "Initial status", id)
-		err = ExistsOrCreate(newTask, filename) // Zapisz nowe zadanie do pliku
+		// if CheckIfJsonRecordExists(filename) {
+
+		// }else{
+
+		// }
+		err = WriteToJsonFile(newTask, filename) // Zapisz nowe zadanie do pliku
 		if err != nil {
 			log.Printf("Error adding a description: %v", err)
 			return
 		}
 		fmt.Println("Task added successfully")
-		// case "update":
-	// 	taskId := os.Args[2]
-	// 	status := os.Args[3]
-	// 	desc := strings.Join(os.Args[3:]," ")
-	// 	if len(os.Args) < 3 {
-	// 		fmt.Println("Please provide a status")
-	// 		return
-	// 	}
+		// 	// case "update":
+		// // 	taskId := os.Args[2]
+		// // 	status := os.Args[3]
+		// // 	desc := strings.Join(os.Args[3:]," ")
+		// // 	if len(os.Args) < 3 {
+		// // 		fmt.Println("Please provide a status")
+		// // 		return
+		// // 	}
 
-	// 	if err != nil {
-	// 		log.Printf("Error changing status: %v", err)
-	// 		return err
-	// 	}
-	default:
-		fmt.Println("Invalid command")
+		// // 	if err != nil {
+		// // 		log.Printf("Error changing status: %v", err)
+		// // 		return err
+		// // 	}
+		// default:
+		// 	fmt.Println("Invalid command")
 	}
+
 }
