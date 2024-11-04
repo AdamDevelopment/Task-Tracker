@@ -25,32 +25,20 @@ type TaskProperties struct {
 	Status    string    `json:"status"`      // The status of the task
 }
 
-func ExistsOrCreate(t *TaskProperties, filename string) error {
+func ExistsOrCreate(filename string) error {
 	if !strings.HasSuffix(filename, ".json") {
 		return fmt.Errorf("invalid file extension. Please provide a JSON file")
 	}
-	data, err := json.MarshalIndent(t, "", "   ")
-	if err != nil {
-		log.Printf("Error marshalling JSON data: %v", err)
-		return err
-	}
-	_, err = os.Stat(filename)
+
+	// Sprawdzenie, czy plik istnieje
+	_, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-
-			SleepTime := 1.5
-			fmt.Println("File does not exist.")
-			time.Sleep(time.Duration(SleepTime) * time.Second)
-			fmt.Print("Creating a new file")
-			for i := 0; i < 3; i++ {
-				fmt.Print(".")
-				time.Sleep(1 * time.Second)
-
-			}
-			fmt.Println("")
-			err = os.WriteFile(filename, data, 0644)
+			// Plik nie istnieje, tworzymy nowy plik JSON
+			fmt.Println("File does not exist. Creating a new file.")
+			err = os.WriteFile(filename, []byte("[]"), 0644) // Pusta tablica JSON jako początkowa zawartość
 			if err != nil {
-				log.Printf("Error writing to file: %v", err)
+				log.Printf("Error creating file: %v", err)
 				return err
 			}
 			fmt.Println("File created successfully.")
@@ -59,43 +47,34 @@ func ExistsOrCreate(t *TaskProperties, filename string) error {
 			return err
 		}
 	} else {
-		fmt.Println("File exists")
+		fmt.Println("File exists.")
 	}
 	return nil
 }
 
+
 // Funkcja do odczytu z pliku JSON
-func ReadJsonFile() (*TaskProperties, error) {
-	var task TaskProperties
+func ReadJsonFile() ([]TaskProperties, error) {
+	var tasks []TaskProperties
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		log.Printf("Error reading file: %v", err)
 		return nil, err
 	}
-	err = json.Unmarshal(data, &task)
+	if len(data) == 0 {
+		fmt.Println("JSON file is empty.")
+		return tasks, nil
+	}
+	err = json.Unmarshal(data, &tasks)
 	if err != nil {
 		log.Printf("Error unmarshalling JSON: %v", err)
 		return nil, err
 	}
-	return &task, nil
+	return tasks, nil
 }
 
-func CheckIfJsonRecordExists(filename string) bool {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		log.Printf("Error reading file: %v", err)
-		return false
-	}
-	if len(data) == 0 {
-		fmt.Println("JSON file is empty.")
-		return false
-	}
-	fmt.Println("JSON file is not empty.")
-	return true
-}
-
-func WriteToJsonFile(task *TaskProperties, filename string) error {
-	data, err := json.MarshalIndent(task, "", "   ")
+func WriteToJsonFile(tasks []TaskProperties, filename string) error {
+	data, err := json.MarshalIndent(tasks, "", "   ")
 	if err != nil {
 		log.Printf("Error marshalling JSON data: %v", err)
 		return err
@@ -124,11 +103,7 @@ func AddTask(desc string, status string, id int) *TaskProperties {
 // Correct "Add" function and reading + writing to JSON (not working due to wrong order of arguments)
 // add "update" and "delete" functions
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./task-cli <command> [arguments]")
-		return
-	}
-	err := ExistsOrCreate(&TaskProperties{}, filename)
+	err := ExistsOrCreate(filename)
 	if err != nil {
 		log.Printf("Error creating file: %v", err)
 		return
@@ -137,40 +112,23 @@ func main() {
 	command := os.Args[1] // add, update, delete, list
 	switch command {
 	case "add":
-		desc := strings.Join(os.Args[2:], " ") // ie. "Task description"
-		task, err := ReadJsonFile()
+		desc := strings.Join(os.Args[2:], " ")
+		tasks, err := ReadJsonFile()
 		if err != nil {
 			log.Printf("Error reading file: %v", err)
 			return
 		}
-		id := task.Id + 1 // ID dla nowego zadania
+		id := len(tasks) + 1 // Generowanie nowego ID
 		newTask := AddTask(desc, "Initial status", id)
-		// if CheckIfJsonRecordExists(filename) {
+		tasks = append(tasks, *newTask) // Dodanie nowego zadania do listy
 
-		// }else{
-
-		// }
-		err = WriteToJsonFile(newTask, filename) // Zapisz nowe zadanie do pliku
+		err = WriteToJsonFile(tasks, filename) // Zapis zaktualizowanej listy zadań do pliku
 		if err != nil {
 			log.Printf("Error adding a description: %v", err)
 			return
 		}
-		fmt.Println("Task added successfully")
-		// 	// case "update":
-		// // 	taskId := os.Args[2]
-		// // 	status := os.Args[3]
-		// // 	desc := strings.Join(os.Args[3:]," ")
-		// // 	if len(os.Args) < 3 {
-		// // 		fmt.Println("Please provide a status")
-		// // 		return
-		// // 	}
-
-		// // 	if err != nil {
-		// // 		log.Printf("Error changing status: %v", err)
-		// // 		return err
-		// // 	}
-		// default:
-		// 	fmt.Println("Invalid command")
+	default:
+		fmt.Println("Invalid command")
 	}
 
 }
