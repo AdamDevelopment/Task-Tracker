@@ -1,7 +1,3 @@
-
-//To-do:
-// 1. Add Json content handling - check if record exists, if not, create a new record under first one (CheckIfJsonRecordExists)
-
 package main
 
 import (
@@ -11,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"strconv"
 )
 
 var (
@@ -73,20 +70,19 @@ func ReadJsonFile() ([]TaskProperties, error) {
 	return tasks, nil
 }
 
-func WriteToJsonFile(tasks []TaskProperties, filename string) error {
+func WriteToJsonFile(tasks []TaskProperties, filename string) (error, bool) {
 	data, err := json.MarshalIndent(tasks, "", "   ")
 	if err != nil {
 		log.Printf("Error marshalling JSON data: %v", err)
-		return err
+		return err, false
 	}
 
 	err = os.WriteFile(filename, data, 0644)
 	if err != nil {
 		log.Printf("Error writing to file: %v", err)
-		return err
+		return err, false
 	}
-	fmt.Println("Task written to file successfully.")
-	return nil
+	return err, true
 }
 
 // Funkcja do dodania nowego zadania
@@ -100,8 +96,23 @@ func AddTask(desc string, status string, id int) *TaskProperties {
 	}
 }
 
-// Correct "Add" function and reading + writing to JSON (not working due to wrong order of arguments)
-// add "update" and "delete" functions
+func UpdateTask(tasks []TaskProperties, id int, desc string) {
+	for i, task := range tasks {
+		if task.Id == id {
+			tasks[i].Desc = desc
+			tasks[i].UpdatedAt = time.Now()
+		}
+	}
+}
+
+func DeleteTask(tasks []TaskProperties, id int) []TaskProperties {
+	for i, task := range tasks {
+		if task.Id == id {
+			return append(tasks[:i], tasks[i+1:]...)
+		}
+	}
+	return tasks
+}
 func main() {
 	err := ExistsOrCreate(filename)
 	if err != nil {
@@ -122,10 +133,56 @@ func main() {
 		newTask := AddTask(desc, "Initial status", id)
 		tasks = append(tasks, *newTask) // Dodanie nowego zadania do listy
 
-		err = WriteToJsonFile(tasks, filename) // Zapis zaktualizowanej listy zadań do pliku
-		if err != nil {
+		err, executed  := WriteToJsonFile(tasks, filename) // Zapis zaktualizowanej listy zadań do pliku
+		if err != nil || !executed {
 			log.Printf("Error adding a description: %v", err)
 			return
+		} else {
+			fmt.Println("Task added successfully.")
+		}
+
+	case "update":
+		id := os.Args[2]
+		idStr, err := strconv.Atoi(id)
+		if err != nil {
+			log.Printf("Error converting ID to integer: %v", err)
+			return
+		}
+		desc := strings.Join(os.Args[3:], " ")
+		tasks, err := ReadJsonFile()
+		if err != nil {
+			log.Printf("Error reading file: %v", err)
+			return
+		}
+		UpdateTask(tasks, idStr, desc)
+		err, executed := WriteToJsonFile(tasks, filename)
+		if err != nil || !executed {
+			log.Printf("Error updating task: %v", err)
+			return
+		} else {
+			fmt.Println("Task updated successfully.")
+		}
+	case "delete":
+		// id := os.Args[2]
+		// idStr, err := strconv.Atoi(id)
+		if err != nil {
+			log.Printf("Error converting ID to integer: %v", err)
+			return
+		}
+		tasks, err := ReadJsonFile()
+		if err != nil {
+			log.Printf("Error reading file: %v", err)
+			return
+		}
+		// DeleteTask(tasks, idStr)
+		log.Println(tasks)
+		err, executed := WriteToJsonFile(tasks, filename)
+		log.Println(tasks)
+		if err != nil || !executed {
+			log.Printf("Error deleting task: %v", err)
+			return
+		} else {
+			fmt.Println("Task deleted successfully.")
 		}
 	default:
 		fmt.Println("Invalid command")
